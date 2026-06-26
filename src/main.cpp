@@ -1,13 +1,10 @@
 #include <Geode/Geode.hpp>
-
-
 #include <Geode/modify/LevelInfoLayer.hpp>
 #include <Geode/modify/CustomSongWidget.hpp>
 #include <Geode/modify/CreatorLayer.hpp>
 #include <Geode/modify/CCScheduler.hpp>
 #include <Geode/ui/GeodeUI.hpp>
 #include <Geode/ui/BasedButtonSprite.hpp>
-//#include <Geode/loader/SettingEvent.hpp>
 #include <filesystem>
 #include <Geode/modify/MusicDownloadManager.hpp>
 #include "blacklisted_ids.hpp"
@@ -37,7 +34,8 @@ bool deleteSFX = false;
 int songCount = 0;
 bool isPlaying = false;
 
-class trashPopup : public geode::Popup<Button*> {
+
+class trashPopup : public Popup {
     Button* layer = nullptr;
     bool song = false;
     bool sfx = false;
@@ -45,8 +43,12 @@ class trashPopup : public geode::Popup<Button*> {
     bool autoSFX = (Mod::get()->getSettingValue<bool>("auto-select-sfx"));
     CCMenuItemToggler* songToggle;
     CCMenuItemToggler* sfxToggle;
+
     protected:
-        bool setup(Button* layer) override {
+        bool init(Button* layer) {
+
+            Popup::init(350, 213, "square01_001.png");
+
             this->layer = layer;
             m_closeBtn->setVisible(false);
             this->setTitle("Delete Audio");
@@ -137,7 +139,7 @@ class trashPopup : public geode::Popup<Button*> {
     public:
         static trashPopup* create(Button* layer) {
             auto ret = new trashPopup;
-            if (ret->initAnchored(350, 213, layer, "square01_001.png", CCRectZero)) {
+            if (ret->init(layer)) {
                 ret->autorelease();
                 return ret;
             }
@@ -161,18 +163,26 @@ class trashPopup : public geode::Popup<Button*> {
         while (std::getline(ss, token, ',')) {
         tokens.push_back(token);
         }
+
+        bool blacklisted = false;
         for (int i = 0; i < tokens.size(); i++) {
             std::string filename;
-            if (blacklistedIDs.contains(std::stoi(tokens[i]))) continue;
+            if (blacklistedIDs.contains(numFromString<int>(tokens[i]).unwrapOr(0))) {
+                blacklisted = true;
+                continue;
+            }
+
             if (sfx) {
-                filename = MusicDownloadManager::sharedState()->pathForSFX(std::stoi(tokens[i]));	
+                filename = MusicDownloadManager::sharedState()->pathForSFX(numFromString<int>(tokens[i]).unwrapOr(0));	
             }
             else {
-                filename = MusicDownloadManager::sharedState()->pathForSong(std::stoi(tokens[i]));
+                filename = MusicDownloadManager::sharedState()->pathForSong(numFromString<int>(tokens[i]).unwrapOr(0));
                 songCount++;
             }
             std::filesystem::remove(filename);
         }
+
+        if (blacklisted) Notification::create("Unable to delete vanilla audio assets.")->show();
     }
 
     void Button::deleteAudio() {
@@ -357,8 +367,8 @@ class $modify (CreatorLayer) {
 
 };
 
-$execute {
-    geode::listenForSettingChanges("hide-settings-button", +[](bool  value) {
+$on_mod(Loaded) {
+    geode::listenForSettingChanges<bool>("hide-settings-button", +[](bool  value) {
         CCScene* scene = CCDirector::sharedDirector()->getRunningScene();
         LevelInfoLayer* layer = scene->getChildByType<LevelInfoLayer>(0);
         if (!layer) return;

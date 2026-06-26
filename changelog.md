@@ -1,3 +1,7 @@
+#1.1.9
+* Updated to GD 2.2081
+* Added warning notification when attempting to delete vanilla audio assets
+
 # 1.1.8
 * Fixed crashes (thanks Zilko)
 
